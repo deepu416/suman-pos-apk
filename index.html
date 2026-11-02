@@ -1,0 +1,1649 @@
+<!DOCTYPE html>
+<html lang="hi">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>Suman Disposal - POS & Khata</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Hind:wght@400;500;600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://accounts.google.com/gsi/client" async defer></script>
+  <style>
+    body { font-family: 'Hind', 'Inter', sans-serif; -webkit-tap-highlight-color: transparent; }
+    .no-scrollbar::-webkit-scrollbar { display: none; }
+    .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+    @media print {
+      body * { visibility: hidden; }
+      #printableReceipt, #printableReceipt * { visibility: visible; }
+      #printableReceipt { position: absolute; left: 0; top: 0; width: 100%; display: block !important; }
+    }
+  </style>
+</head>
+<body class="bg-slate-100 text-slate-800 antialiased flex flex-col min-h-screen select-none pb-20">
+
+  <!-- TOP APP BAR -->
+  <header class="bg-emerald-700 text-white sticky top-0 z-40 shadow-md">
+    <div class="max-w-md mx-auto px-4 py-2.5 flex items-center justify-between">
+      <div class="flex items-center space-x-2">
+        <div class="w-8 h-8 rounded-lg bg-emerald-800 flex items-center justify-center font-bold text-lg shadow-inner">📦</div>
+        <div>
+          <h1 id="shopTitle" class="font-bold text-base leading-tight tracking-wide">सुमन डिस्पोजल & बॉक्सेस</h1>
+          <p id="shopSubtitle" class="text-[11px] text-emerald-200">बिलिंग, कच्चा माल एवं थोक खाता</p>
+        </div>
+      </div>
+      <div class="flex items-center space-x-1.5">
+        <!-- Shop Settings Button -->
+        <button onclick="openShopSettings()" class="p-2 rounded-lg bg-emerald-800 hover:bg-emerald-600 active:scale-95 text-xs font-semibold flex items-center space-x-1" title="दुकान सेटिंग्स">
+          <span>🏪</span>
+        </button>
+        <!-- Google Drive Backup Button -->
+        <button onclick="openCloudModal()" class="p-2 rounded-lg bg-emerald-800 hover:bg-emerald-600 active:scale-95 text-xs font-semibold flex items-center space-x-1" title="गूगल ड्राइव बैकअप">
+          <span id="gdriveIcon">☁️</span>
+        </button>
+        <!-- Cart Badge Button -->
+        <button onclick="openCartSheet()" class="relative p-2 rounded-lg bg-emerald-800 hover:bg-emerald-600 active:scale-95 text-xs font-semibold flex items-center">
+          <span>🛒</span>
+          <span id="cartCountBadge" class="hidden absolute -top-1 -right-1 bg-amber-400 text-slate-900 font-bold text-[10px] w-4 h-4 rounded-full flex items-center justify-center">0</span>
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <!-- MAIN CONTAINER (Mobile-First 480px) -->
+  <main class="flex-1 max-w-md w-full mx-auto p-3 flex flex-col space-y-3">
+
+    <!-- 1. POS BILLING TAB -->
+    <section id="tab-pos" class="tab-content flex flex-col space-y-3">
+      <!-- Search & Customer Bar -->
+      <div class="bg-white p-2.5 rounded-xl shadow-sm border border-slate-200 flex flex-col space-y-2">
+        <div class="relative">
+          <input type="text" id="posSearch" placeholder="सामान खोजें (उदा. दोना, 1kg डिब्बा, पन्नी)..." 
+            oninput="renderPosProducts()" 
+            class="w-full pl-9 pr-8 py-2 text-sm bg-slate-50 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500 font-medium">
+          <span class="absolute left-3 top-2.5 text-slate-400 text-xs">🔍</span>
+          <button onclick="clearPosSearch()" id="clearSearchBtn" class="hidden absolute right-2.5 top-2 text-slate-400 hover:text-slate-600 font-bold text-xs p-0.5">✕</button>
+        </div>
+
+        <!-- Selected Customer Quick Pill -->
+        <div class="flex items-center justify-between text-xs bg-emerald-50 text-emerald-900 px-2.5 py-1.5 rounded-lg border border-emerald-200">
+          <div class="flex items-center space-x-1.5 truncate">
+            <span>👤 ग्राहक:</span>
+            <span id="currentCustomerName" class="font-bold truncate">काउंटर नकद ग्राहक (Retail)</span>
+          </div>
+          <button onclick="openSelectCustomerModal()" class="text-emerald-700 font-bold underline ml-2 whitespace-nowrap active:scale-95">बदलें</button>
+        </div>
+      </div>
+
+      <!-- Category Filter Pills -->
+      <div id="categoryPills" class="flex space-x-2 overflow-x-auto no-scrollbar pb-1 text-xs">
+        <!-- Rendered by JS -->
+      </div>
+
+      <!-- Product Cards Grid -->
+      <div id="posProductGrid" class="grid grid-cols-2 gap-2.5">
+        <!-- Product Cards injected here -->
+      </div>
+    </section>
+
+    <!-- 2. FINISHED STOCK TAB -->
+    <section id="tab-stock" class="tab-content hidden flex-col space-y-3">
+      <div class="flex items-center justify-between">
+        <div>
+          <h2 class="font-bold text-base text-slate-800">तैयार सामान स्टॉक (Catalog)</h2>
+          <p class="text-xs text-slate-500">डिस्पोजेबल व निर्मित मिठाई डिब्बे</p>
+        </div>
+        <button onclick="openAddProductModal()" class="bg-emerald-600 active:scale-95 text-white px-3 py-1.5 rounded-lg text-xs font-bold shadow flex items-center space-x-1">
+          <span>+ नया आइटम</span>
+        </button>
+      </div>
+
+      <!-- Stock Items List -->
+      <div id="stockListContainer" class="flex flex-col space-y-2">
+        <!-- Injected by JS -->
+      </div>
+    </section>
+
+    <!-- 3. RAW MATERIAL & PRODUCTION TAB -->
+    <section id="tab-raw" class="tab-content hidden flex-col space-y-3">
+      <div class="bg-amber-500 text-white p-3 rounded-xl shadow-sm flex items-center justify-between">
+        <div>
+          <h2 class="font-bold text-base">डिब्बा निर्माण (Production)</h2>
+          <p class="text-[11px] text-amber-100">शीट काटकर नया डिब्बा तैयार करें</p>
+        </div>
+        <button onclick="openProductionModal()" class="bg-white text-amber-800 px-3 py-1.5 rounded-lg text-xs font-bold shadow active:scale-95">
+          🔨 नया निर्माण दर्ज करें
+        </button>
+      </div>
+
+      <div class="flex items-center justify-between pt-1">
+        <h3 class="font-bold text-sm text-slate-700">कच्चा माल इन्वेंटरी (Raw Materials)</h3>
+        <button onclick="openAddRawModal()" class="text-emerald-700 text-xs font-bold border border-emerald-300 bg-emerald-50 px-2 py-1 rounded-md">
+          + कच्चा माल जोड़ें
+        </button>
+      </div>
+
+      <div id="rawListContainer" class="flex flex-col space-y-2">
+        <!-- Injected by JS -->
+      </div>
+    </section>
+
+    <!-- 4. CUSTOMER KHATA (LEDGER) TAB -->
+    <section id="tab-khata" class="tab-content hidden flex-col space-y-3">
+      <div class="flex items-center justify-between">
+        <div>
+          <h2 class="font-bold text-base text-slate-800">थोक ग्राहक खाता (Khata)</h2>
+          <p class="text-xs text-slate-500">उधार, जमा व व्हाट्सएप तकादा</p>
+        </div>
+        <button onclick="openAddCustomerModal()" class="bg-emerald-600 active:scale-95 text-white px-3 py-1.5 rounded-lg text-xs font-bold shadow">
+          + नया खाता
+        </button>
+      </div>
+
+      <!-- Khata Summary Cards -->
+      <div class="grid grid-cols-2 gap-2 text-xs">
+        <div class="bg-red-50 border border-red-200 p-2.5 rounded-xl">
+          <p class="text-red-600 font-medium">बाजार में कुल उधार</p>
+          <p id="totalMarketUdhar" class="text-lg font-bold text-red-700 mt-0.5">₹0</p>
+        </div>
+        <div class="bg-emerald-50 border border-emerald-200 p-2.5 rounded-xl">
+          <p class="text-emerald-700 font-medium">सक्रिय ग्राहक</p>
+          <p id="totalCustomersCount" class="text-lg font-bold text-emerald-800 mt-0.5">0</p>
+        </div>
+      </div>
+
+      <!-- Customer List -->
+      <div id="customerListContainer" class="flex flex-col space-y-2">
+        <!-- Injected by JS -->
+      </div>
+    </section>
+
+    <!-- 5. HISAAB / SALES HISTORY TAB WITH FY & PERIOD FILTERS -->
+    <section id="tab-hisaab" class="tab-content hidden flex-col space-y-3">
+      <div>
+        <h2 class="font-bold text-base text-slate-800">बिक्री हिसाब-किताब (Reports)</h2>
+        <p class="text-xs text-slate-500">दैनिक, मासिक, वार्षिक व वित्तीय वर्ष हिसाब</p>
+      </div>
+
+      <!-- Period Filter Tabs -->
+      <div class="bg-white p-1 rounded-xl shadow-sm border border-slate-200 flex space-x-1 text-xs">
+        <button onclick="setHisaabPeriod('daily')" id="period-daily" class="flex-1 py-1.5 rounded-lg font-bold text-center bg-emerald-600 text-white">आज</button>
+        <button onclick="setHisaabPeriod('monthly')" id="period-monthly" class="flex-1 py-1.5 rounded-lg font-medium text-slate-600 text-center">महीना</button>
+        <button onclick="setHisaabPeriod('yearly')" id="period-yearly" class="flex-1 py-1.5 rounded-lg font-medium text-slate-600 text-center">कैलेंडर वर्ष</button>
+        <button onclick="setHisaabPeriod('fy')" id="period-fy" class="flex-1 py-1.5 rounded-lg font-medium text-slate-600 text-center">वित्तीय वर्ष</button>
+      </div>
+
+      <!-- Period Sub-selector (Year / FY Picker) -->
+      <div id="hisaabSelectorBox" class="bg-slate-50 p-2 rounded-lg border border-slate-200 flex items-center justify-between text-xs">
+        <span id="hisaabRangeLabel" class="font-semibold text-slate-700">आज: 02 Nov 2026</span>
+        <select id="hisaabDropdown" onchange="onHisaabDropdownChange()" class="hidden bg-white border border-slate-300 rounded px-2 py-1 text-xs font-semibold">
+          <!-- Populated dynamically -->
+        </select>
+      </div>
+
+      <!-- Summary KPI Metric Cards -->
+      <div class="grid grid-cols-2 gap-2 text-xs">
+        <div class="bg-white p-3 rounded-xl border border-slate-200 shadow-sm">
+          <p class="text-slate-500 font-medium">कुल बिक्री (Gross)</p>
+          <p id="kpiGrossSales" class="text-lg font-bold text-slate-800 mt-1">₹0</p>
+          <p id="kpiBillCount" class="text-[10px] text-slate-400">0 बिल काटे गए</p>
+        </div>
+        <div class="bg-emerald-50 p-3 rounded-xl border border-emerald-200 shadow-sm">
+          <p class="text-emerald-700 font-medium">नकद प्राप्ति (Cash)</p>
+          <p id="kpiCashSales" class="text-lg font-bold text-emerald-800 mt-1">₹0</p>
+          <p class="text-[10px] text-emerald-600">गल्ले में नकद</p>
+        </div>
+        <div class="bg-blue-50 p-3 rounded-xl border border-blue-200 shadow-sm">
+          <p class="text-blue-700 font-medium">UPI / ऑनलाइन</p>
+          <p id="kpiUpiSales" class="text-lg font-bold text-blue-800 mt-1">₹0</p>
+          <p class="text-[10px] text-blue-600">सीधे बैंक खाते में</p>
+        </div>
+        <div class="bg-amber-50 p-3 rounded-xl border border-amber-200 shadow-sm">
+          <p class="text-amber-800 font-medium">उधार बिक्री (Credit)</p>
+          <p id="kpiCreditSales" class="text-lg font-bold text-amber-900 mt-1">₹0</p>
+          <p class="text-[10px] text-amber-700">खाता में दर्ज</p>
+        </div>
+      </div>
+
+      <!-- Invoice History List -->
+      <h3 class="font-bold text-xs text-slate-600 uppercase tracking-wider mt-2">कटे हुए बिलों का ब्यौरा</h3>
+      <div id="hisaabInvoicesList" class="flex flex-col space-y-2">
+        <!-- Rendered by JS -->
+      </div>
+    </section>
+
+  </main>
+
+  <!-- BOTTOM NAVIGATION BAR -->
+  <nav class="fixed bottom-0 left-0 right-0 bg-white border-t border-slate-200 z-30 shadow-lg">
+    <div class="max-w-md mx-auto grid grid-cols-5 text-[11px] py-1.5 font-semibold text-slate-500">
+      <button onclick="switchTab('pos')" id="nav-pos" class="flex flex-col items-center py-1 text-emerald-700">
+        <span class="text-lg">🛒</span>
+        <span>बिक्री</span>
+      </button>
+      <button onclick="switchTab('stock')" id="nav-stock" class="flex flex-col items-center py-1 hover:text-emerald-700">
+        <span class="text-lg">📦</span>
+        <span>सामान</span>
+      </button>
+      <button onclick="switchTab('raw')" id="nav-raw" class="flex flex-col items-center py-1 hover:text-emerald-700">
+        <span class="text-lg">🏭</span>
+        <span>कच्चा माल</span>
+      </button>
+      <button onclick="switchTab('khata')" id="nav-khata" class="flex flex-col items-center py-1 hover:text-emerald-700">
+        <span class="text-lg">📖</span>
+        <span>खाता</span>
+      </button>
+      <button onclick="switchTab('hisaab')" id="nav-hisaab" class="flex flex-col items-center py-1 hover:text-emerald-700">
+        <span class="text-lg">📊</span>
+        <span>हिसाब</span>
+      </button>
+    </div>
+  </nav>
+
+  <!-- CART BOTTOM DRAWER -->
+  <div id="cartSheet" class="fixed inset-0 bg-black/60 z-50 hidden flex-col justify-end">
+    <div class="bg-white rounded-t-2xl max-w-md w-full mx-auto max-h-[88vh] flex flex-col shadow-2xl animate-in slide-in-from-bottom duration-200">
+      <div class="p-3.5 border-b border-slate-200 flex items-center justify-between bg-slate-50 rounded-t-2xl">
+        <div class="flex items-center space-x-2">
+          <span class="text-lg">🧾</span>
+          <div>
+            <h3 class="font-bold text-sm text-slate-800">चालू बिल (Current Bill)</h3>
+            <p id="cartCustomerSubhead" class="text-[11px] text-slate-500 truncate max-w-[200px]">काउंटर नकद ग्राहक</p>
+          </div>
+        </div>
+        <button onclick="closeCartSheet()" class="p-1 text-slate-400 hover:text-slate-600 font-bold text-base">✕</button>
+      </div>
+
+      <!-- Cart Items List -->
+      <div id="cartItemsList" class="p-3 flex-1 overflow-y-auto space-y-2.5">
+        <!-- Injected by JS -->
+      </div>
+
+      <!-- Cart Payment & Action Footer -->
+      <div class="p-3.5 bg-slate-50 border-t border-slate-200 flex flex-col space-y-3">
+        <div class="flex items-center justify-between text-base font-bold text-slate-800">
+          <span>कुल रकम (Net Amount):</span>
+          <span id="cartGrandTotal" class="text-emerald-700 text-xl font-black">₹0</span>
+        </div>
+
+        <!-- Payment Mode Selector -->
+        <div>
+          <label class="block text-[11px] font-bold text-slate-600 mb-1">भुगतान का माध्यम (Payment Mode):</label>
+          <div class="grid grid-cols-3 gap-1.5 text-xs">
+            <button onclick="selectPaymentMode('CASH')" id="pay-CASH" class="py-2 rounded-lg border-2 border-emerald-600 bg-emerald-50 font-bold text-emerald-800">💵 नकद (Cash)</button>
+            <button onclick="selectPaymentMode('UPI')" id="pay-UPI" class="py-2 rounded-lg border border-slate-300 bg-white font-medium text-slate-700">📱 UPI / QR</button>
+            <button onclick="selectPaymentMode('UDHAR')" id="pay-UDHAR" class="py-2 rounded-lg border border-slate-300 bg-white font-medium text-amber-700">⏳ उधार (Credit)</button>
+          </div>
+        </div>
+
+        <!-- Action Buttons -->
+        <div class="grid grid-cols-2 gap-2 pt-1">
+          <button onclick="clearCart()" class="py-2.5 rounded-xl border border-slate-300 text-slate-600 font-bold text-xs active:scale-95">
+            रद्द करें (Clear)
+          </button>
+          <button onclick="finalizeSaleAndShareWhatsApp()" class="py-2.5 rounded-xl bg-emerald-600 active:scale-95 text-white font-bold text-xs shadow flex items-center justify-center space-x-1.5">
+            <span>💬 बिल काटें & WhatsApp</span>
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ADD TO CART / OVERRIDE PRICE MODAL -->
+  <div id="addToCartModal" class="fixed inset-0 bg-black/60 z-50 hidden flex-col justify-end">
+    <div class="bg-white rounded-t-2xl max-w-md w-full mx-auto p-4 space-y-3">
+      <div class="flex items-center justify-between border-b pb-2">
+        <div>
+          <h3 id="modalItemTitle" class="font-bold text-sm text-slate-800">आइटम नाम</h3>
+          <p id="modalItemStock" class="text-[11px] text-slate-500">उपलब्ध: 0</p>
+        </div>
+        <button onclick="closeAddToCartModal()" class="text-slate-400 font-bold">✕</button>
+      </div>
+
+      <div class="grid grid-cols-2 gap-3">
+        <div>
+          <label class="block text-[11px] font-bold text-slate-600 mb-1">मात्रा (Quantity):</label>
+          <input type="number" id="modalItemQty" value="1" min="1" class="w-full text-center py-2 text-base font-bold bg-slate-50 border rounded-lg focus:ring-2 focus:ring-emerald-500">
+        </div>
+        <div>
+          <label class="block text-[11px] font-bold text-slate-600 mb-1">रेट प्रति यूनिट (₹):</label>
+          <input type="number" id="modalItemRate" value="0" class="w-full text-center py-2 text-base font-bold bg-slate-50 border rounded-lg focus:ring-2 focus:ring-emerald-500">
+          <p class="text-[10px] text-emerald-600 mt-0.5 text-center">ग्राहक के लिए रेट बदल सकते हैं</p>
+        </div>
+      </div>
+
+      <button onclick="confirmAddToCart()" class="w-full py-2.5 bg-emerald-600 active:scale-95 text-white font-bold text-sm rounded-xl shadow">
+        बिल में जोड़ें (Add to Cart)
+      </button>
+    </div>
+  </div>
+
+  <!-- EDIT FINISHED PRODUCT MODAL -->
+  <div id="editProductModal" class="fixed inset-0 bg-black/60 z-50 hidden flex-col justify-end">
+    <div class="bg-white rounded-t-2xl max-w-md w-full mx-auto p-4 space-y-3 max-h-[90vh] overflow-y-auto">
+      <div class="flex items-center justify-between border-b pb-2">
+        <h3 class="font-bold text-sm text-slate-800">✏️ सामान का विवरण बदलें (Edit Item)</h3>
+        <button onclick="closeEditProductModal()" class="text-slate-400 font-bold text-base">✕</button>
+      </div>
+
+      <input type="hidden" id="editProdId">
+      <div>
+        <label class="block text-[11px] font-bold text-slate-600 mb-1">आइटम का नाम:</label>
+        <input type="text" id="editProdName" class="w-full p-2 border rounded-lg text-xs font-semibold">
+      </div>
+      <div class="grid grid-cols-2 gap-2">
+        <div>
+          <label class="block text-[11px] font-bold text-slate-600 mb-1">कैटेगरी:</label>
+          <select id="editProdCat" class="w-full p-2 border rounded-lg text-xs font-semibold bg-white">
+            <option value="disposable">डिस्पोजेबल</option>
+            <option value="boxes">मिठाई डिब्बा</option>
+          </select>
+        </div>
+        <div>
+          <label class="block text-[11px] font-bold text-slate-600 mb-1">बिक्री यूनिट (Unit):</label>
+          <input type="text" id="editProdUnit" class="w-full p-2 border rounded-lg text-xs font-semibold" placeholder="उदा. नग, Pack 15, Kg">
+        </div>
+      </div>
+      <div class="grid grid-cols-2 gap-2">
+        <div>
+          <label class="block text-[11px] font-bold text-slate-600 mb-1">बिक्री रेट (₹):</label>
+          <input type="number" id="editProdPrice" class="w-full p-2 border rounded-lg text-xs font-semibold">
+        </div>
+        <div>
+          <label class="block text-[11px] font-bold text-slate-600 mb-1">दुकान में स्टॉक:</label>
+          <input type="number" id="editProdStock" class="w-full p-2 border rounded-lg text-xs font-semibold">
+        </div>
+      </div>
+
+      <div class="grid grid-cols-2 gap-2 pt-2">
+        <button onclick="closeEditProductModal()" class="py-2 border border-slate-300 rounded-lg text-xs font-bold text-slate-600">रद्द करें</button>
+        <button onclick="saveProductEdit()" class="py-2 bg-emerald-600 text-white rounded-lg text-xs font-bold shadow">अपडेट करें</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- EDIT RAW MATERIAL MODAL -->
+  <div id="editRawModal" class="fixed inset-0 bg-black/60 z-50 hidden flex-col justify-end">
+    <div class="bg-white rounded-t-2xl max-w-md w-full mx-auto p-4 space-y-3">
+      <div class="flex items-center justify-between border-b pb-2">
+        <h3 class="font-bold text-sm text-slate-800">✏️ कच्चा माल बदलें (Edit Raw Material)</h3>
+        <button onclick="closeEditRawModal()" class="text-slate-400 font-bold text-base">✕</button>
+      </div>
+
+      <input type="hidden" id="editRawId">
+      <div>
+        <label class="block text-[11px] font-bold text-slate-600 mb-1">कच्चा माल का नाम:</label>
+        <input type="text" id="editRawName" class="w-full p-2 border rounded-lg text-xs font-semibold">
+      </div>
+      <div class="grid grid-cols-2 gap-2">
+        <div>
+          <label class="block text-[11px] font-bold text-slate-600 mb-1">उपलब्ध स्टॉक:</label>
+          <input type="number" id="editRawStock" class="w-full p-2 border rounded-lg text-xs font-semibold">
+        </div>
+        <div>
+          <label class="block text-[11px] font-bold text-slate-600 mb-1">माप इकाई (Unit):</label>
+          <input type="text" id="editRawUnit" class="w-full p-2 border rounded-lg text-xs font-semibold">
+        </div>
+      </div>
+      <div>
+        <label class="block text-[11px] font-bold text-slate-600 mb-1">लागत मूल्य प्रति यूनिट (₹):</label>
+        <input type="number" id="editRawCost" class="w-full p-2 border rounded-lg text-xs font-semibold">
+      </div>
+
+      <div class="grid grid-cols-2 gap-2 pt-2">
+        <button onclick="closeEditRawModal()" class="py-2 border border-slate-300 rounded-lg text-xs font-bold text-slate-600">रद्द करें</button>
+        <button onclick="saveRawEdit()" class="py-2 bg-emerald-600 text-white rounded-lg text-xs font-bold shadow">अपडेट करें</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- SHOP SETTINGS MODAL -->
+  <div id="shopSettingsModal" class="fixed inset-0 bg-black/60 z-50 hidden flex-col justify-end">
+    <div class="bg-white rounded-t-2xl max-w-md w-full mx-auto p-4 space-y-3">
+      <div class="flex items-center justify-between border-b pb-2">
+        <h3 class="font-bold text-sm text-slate-800">🏪 दुकान की जानकारी (Shop Profile)</h3>
+        <button onclick="closeShopSettings()" class="text-slate-400 font-bold text-base">✕</button>
+      </div>
+
+      <div>
+        <label class="block text-[11px] font-bold text-slate-600 mb-1">दुकान का नाम (Shop Name):</label>
+        <input type="text" id="settingsShopName" class="w-full p-2 border rounded-lg text-xs font-semibold">
+      </div>
+      <div>
+        <label class="block text-[11px] font-bold text-slate-600 mb-1">दुकान का पता (Address):</label>
+        <textarea id="settingsShopAddress" rows="2" class="w-full p-2 border rounded-lg text-xs font-semibold"></textarea>
+      </div>
+      <div>
+        <label class="block text-[11px] font-bold text-slate-600 mb-1">व्हाट्सएप / फोन नंबर (Phone/WhatsApp):</label>
+        <input type="text" id="settingsShopPhone" class="w-full p-2 border rounded-lg text-xs font-semibold" placeholder="98XXXXXXXX">
+      </div>
+
+      <div class="grid grid-cols-2 gap-2 pt-2">
+        <button onclick="closeShopSettings()" class="py-2 border border-slate-300 rounded-lg text-xs font-bold text-slate-600">बंद करें</button>
+        <button onclick="saveShopSettings()" class="py-2 bg-emerald-600 text-white rounded-lg text-xs font-bold shadow">जानकारी सुरक्षित करें</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- GOOGLE DRIVE & DATA BACKUP MODAL -->
+  <div id="cloudModal" class="fixed inset-0 bg-black/60 z-50 hidden flex-col justify-end">
+    <div class="bg-white rounded-t-2xl max-w-md w-full mx-auto p-4 space-y-3 max-h-[85vh] overflow-y-auto">
+      <div class="flex items-center justify-between border-b pb-2">
+        <div class="flex items-center space-x-1.5">
+          <span class="text-lg">☁️</span>
+          <h3 class="font-bold text-sm text-slate-800">Google Drive बैकअप व रीस्टोर</h3>
+        </div>
+        <button onclick="closeCloudModal()" class="text-slate-400 font-bold text-base">✕</button>
+      </div>
+
+      <div class="bg-blue-50 border border-blue-200 p-3 rounded-xl text-xs space-y-1.5">
+        <p class="font-bold text-blue-900">5 TB Family Plan सिंक</p>
+        <p class="text-[11px] text-blue-700">अपने पर्सनल या फैमिली गूगल अकाउंट से सीधे सिंक करें। फोन खोने या टूटने पर एक क्लिक में पूरा डाटा वापस आ जाएगा।</p>
+        <div id="driveAuthStatus" class="text-[11px] font-semibold text-slate-600 pt-1">
+          स्थिति: <span class="text-amber-700">अनलॉगिन (Not Connected)</span>
+        </div>
+      </div>
+
+      <div class="space-y-2">
+        <button onclick="handleGoogleDriveAuth()" id="btnDriveAuth" class="w-full py-2.5 bg-blue-600 active:scale-95 text-white font-bold text-xs rounded-xl shadow flex items-center justify-center space-x-2">
+          <span>G</span>
+          <span>Google Drive से जोड़ें (Sign in with Google)</span>
+        </button>
+
+        <button onclick="uploadBackupToDrive()" id="btnDriveUpload" disabled class="w-full py-2.5 bg-emerald-600 opacity-50 cursor-not-allowed text-white font-bold text-xs rounded-xl shadow flex items-center justify-center space-x-1.5">
+          <span>⬆️</span>
+          <span>Drive पर अभी नया बैकअप सुरक्षित करें</span>
+        </button>
+      </div>
+
+      <hr class="border-slate-200 my-2">
+
+      <div>
+        <p class="text-xs font-bold text-slate-700 mb-1.5">ऑफलाइन फाइल बैकअप (बिना इंटरनेट)</p>
+        <div class="grid grid-cols-2 gap-2">
+          <button onclick="downloadLocalBackup()" class="py-2 border border-slate-300 text-slate-700 font-bold text-xs rounded-lg active:scale-95">
+            📥 फाइल डाउनलोड करें
+          </button>
+          <label class="py-2 bg-slate-100 border border-slate-300 text-slate-700 font-bold text-xs rounded-lg text-center cursor-pointer active:scale-95">
+            📤 फाइल से रीस्टोर
+            <input type="file" id="localRestoreInput" accept=".json" onchange="restoreLocalBackup(event)" class="hidden">
+          </label>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ADD PRODUCT MODAL -->
+  <div id="addProductModal" class="fixed inset-0 bg-black/60 z-50 hidden flex-col justify-end">
+    <div class="bg-white rounded-t-2xl max-w-md w-full mx-auto p-4 space-y-3">
+      <div class="flex items-center justify-between border-b pb-2">
+        <h3 class="font-bold text-sm text-slate-800">+ नया सामान जोड़ें (Add Item)</h3>
+        <button onclick="closeAddProductModal()" class="text-slate-400 font-bold text-base">✕</button>
+      </div>
+
+      <div>
+        <label class="block text-[11px] font-bold text-slate-600 mb-1">सामान का नाम:</label>
+        <input type="text" id="newProdName" placeholder="उदा. सिल्वर दोना 6 इंच / 500g मिठाई डिब्बा" class="w-full p-2 border rounded-lg text-xs font-semibold">
+      </div>
+
+      <div class="grid grid-cols-2 gap-2">
+        <div>
+          <label class="block text-[11px] font-bold text-slate-600 mb-1">कैटेगरी:</label>
+          <select id="newProdCat" class="w-full p-2 border rounded-lg text-xs font-semibold bg-white">
+            <option value="disposable">डिस्पोजेबल</option>
+            <option value="boxes">मिठाई डिब्बा</option>
+          </select>
+        </div>
+        <div>
+          <label class="block text-[11px] font-bold text-slate-600 mb-1">बिक्री यूनिट (Unit):</label>
+          <input type="text" id="newProdUnit" placeholder="उदा. Pack 15, नग, Kg" class="w-full p-2 border rounded-lg text-xs font-semibold">
+        </div>
+      </div>
+
+      <div class="grid grid-cols-2 gap-2">
+        <div>
+          <label class="block text-[11px] font-bold text-slate-600 mb-1">डिफ़ॉल्ट बिक्री मूल्य (₹):</label>
+          <input type="number" id="newProdPrice" placeholder="0" class="w-full p-2 border rounded-lg text-xs font-semibold">
+        </div>
+        <div>
+          <label class="block text-[11px] font-bold text-slate-600 mb-1">आरंभिक स्टॉक (Quantity):</label>
+          <input type="number" id="newProdStock" placeholder="0" class="w-full p-2 border rounded-lg text-xs font-semibold">
+        </div>
+      </div>
+
+      <button onclick="saveNewProduct()" class="w-full py-2.5 bg-emerald-600 active:scale-95 text-white font-bold text-xs rounded-xl shadow">
+        सुरक्षित करें (Save Product)
+      </button>
+    </div>
+  </div>
+
+  <!-- ADD RAW MATERIAL MODAL -->
+  <div id="addRawModal" class="fixed inset-0 bg-black/60 z-50 hidden flex-col justify-end">
+    <div class="bg-white rounded-t-2xl max-w-md w-full mx-auto p-4 space-y-3">
+      <div class="flex items-center justify-between border-b pb-2">
+        <h3 class="font-bold text-sm text-slate-800">+ नया कच्चा माल (Raw Material)</h3>
+        <button onclick="closeAddRawModal()" class="text-slate-400 font-bold text-base">✕</button>
+      </div>
+
+      <div>
+        <label class="block text-[11px] font-bold text-slate-600 mb-1">कच्चा माल का नाम:</label>
+        <input type="text" id="newRawName" placeholder="उदा. डुप्लेक्स बोर्ड 350 GSM / गोल्डन फॉयल रोल" class="w-full p-2 border rounded-lg text-xs font-semibold">
+      </div>
+
+      <div class="grid grid-cols-2 gap-2">
+        <div>
+          <label class="block text-[11px] font-bold text-slate-600 mb-1">मात्रा / शीट:</label>
+          <input type="number" id="newRawQty" placeholder="0" class="w-full p-2 border rounded-lg text-xs font-semibold">
+        </div>
+        <div>
+          <label class="block text-[11px] font-bold text-slate-600 mb-1">इकाई (Unit):</label>
+          <input type="text" id="newRawUnit" placeholder="शीट (Sheets) / रोल" class="w-full p-2 border rounded-lg text-xs font-semibold">
+        </div>
+      </div>
+
+      <div>
+        <label class="block text-[11px] font-bold text-slate-600 mb-1">लागत मूल्य प्रति यूनिट (₹):</label>
+        <input type="number" id="newRawCost" placeholder="0" class="w-full p-2 border rounded-lg text-xs font-semibold">
+      </div>
+
+      <button onclick="saveNewRaw()" class="w-full py-2.5 bg-emerald-600 active:scale-95 text-white font-bold text-xs rounded-xl shadow">
+        सुरक्षित करें
+      </button>
+    </div>
+  </div>
+
+  <!-- RECORD PRODUCTION MODAL -->
+  <div id="productionModal" class="fixed inset-0 bg-black/60 z-50 hidden flex-col justify-end">
+    <div class="bg-white rounded-t-2xl max-w-md w-full mx-auto p-4 space-y-3">
+      <div class="flex items-center justify-between border-b pb-2">
+        <h3 class="font-bold text-sm text-slate-800">🔨 डिब्बा निर्माण दर्ज करें (Box Production)</h3>
+        <button onclick="closeProductionModal()" class="text-slate-400 font-bold text-base">✕</button>
+      </div>
+
+      <div>
+        <label class="block text-[11px] font-bold text-slate-600 mb-1">कौन सा डिब्बा तैयार हुआ:</label>
+        <select id="prodBoxSelect" class="w-full p-2 border rounded-lg text-xs font-semibold bg-white">
+          <!-- Populated with box products -->
+        </select>
+      </div>
+
+      <div>
+        <label class="block text-[11px] font-bold text-slate-600 mb-1">कितने डिब्बे तैयार हुए (Quantity):</label>
+        <input type="number" id="prodBoxQty" placeholder="100" class="w-full p-2 border rounded-lg text-xs font-semibold">
+      </div>
+
+      <div class="bg-amber-50 p-2.5 rounded-lg border border-amber-200">
+        <label class="block text-[11px] font-bold text-amber-900 mb-1">कच्ची शीट जो खर्च हुई:</label>
+        <div class="grid grid-cols-2 gap-2">
+          <select id="prodRawSelect" class="w-full p-2 border rounded-lg text-xs font-semibold bg-white">
+            <!-- Populated with raw materials -->
+          </select>
+          <input type="number" id="prodRawUsed" placeholder="खर्च शीट" class="w-full p-2 border rounded-lg text-xs font-semibold">
+        </div>
+      </div>
+
+      <button onclick="executeProduction()" class="w-full py-2.5 bg-amber-600 active:scale-95 text-white font-bold text-xs rounded-xl shadow">
+        स्टॉक अपडेट करें (Deduct Raw & Add Boxes)
+      </button>
+    </div>
+  </div>
+
+  <!-- SELECT CUSTOMER MODAL -->
+  <div id="selectCustomerModal" class="fixed inset-0 bg-black/60 z-50 hidden flex-col justify-end">
+    <div class="bg-white rounded-t-2xl max-w-md w-full mx-auto p-4 space-y-3 max-h-[85vh] flex flex-col">
+      <div class="flex items-center justify-between border-b pb-2">
+        <h3 class="font-bold text-sm text-slate-800">ग्राहक चुनें (Select Customer)</h3>
+        <button onclick="closeSelectCustomerModal()" class="text-slate-400 font-bold text-base">✕</button>
+      </div>
+
+      <div class="flex-1 overflow-y-auto space-y-1.5" id="customerSelectList">
+        <!-- Rendered by JS -->
+      </div>
+    </div>
+  </div>
+
+  <!-- CUSTOMER LEDGER MODAL -->
+  <div id="customerLedgerModal" class="fixed inset-0 bg-black/60 z-50 hidden flex-col justify-end">
+    <div class="bg-white rounded-t-2xl max-w-md w-full mx-auto p-4 space-y-3 max-h-[88vh] flex flex-col">
+      <div class="flex items-center justify-between border-b pb-2">
+        <div>
+          <h3 id="ledgerCustName" class="font-bold text-sm text-slate-800">ग्राहक खाता</h3>
+          <p id="ledgerCustPhone" class="text-xs text-slate-500">फोन: -</p>
+        </div>
+        <button onclick="closeCustomerLedgerModal()" class="text-slate-400 font-bold text-base">✕</button>
+      </div>
+
+      <div class="bg-red-50 p-2.5 rounded-xl border border-red-200 flex items-center justify-between">
+        <span class="text-xs font-bold text-red-800">बाकी बकाया (Balance):</span>
+        <span id="ledgerBalanceAmount" class="text-lg font-black text-red-700">₹0</span>
+      </div>
+
+      <div class="flex space-x-2 text-xs">
+        <button onclick="openReceivePaymentModal()" class="flex-1 py-2 bg-emerald-600 text-white font-bold rounded-lg shadow active:scale-95">
+          💵 जमा रकम दर्ज करें
+        </button>
+        <button onclick="sendKhataWhatsAppReminder()" class="flex-1 py-2 bg-green-500 text-white font-bold rounded-lg shadow active:scale-95">
+          💬 तकादा WhatsApp
+        </button>
+      </div>
+
+      <h4 class="font-bold text-xs text-slate-700 uppercase pt-2">लेन-देन इतिहास (History)</h4>
+      <div id="ledgerEntriesList" class="flex-1 overflow-y-auto space-y-2 text-xs">
+        <!-- Injected by JS -->
+      </div>
+    </div>
+  </div>
+
+  <!-- CONFIRM DELETE DIALOG -->
+  <div id="deleteConfirmModal" class="fixed inset-0 bg-black/60 z-50 hidden items-center justify-center p-4">
+    <div class="bg-white rounded-2xl max-w-sm w-full p-4 space-y-3 shadow-2xl">
+      <h3 class="font-bold text-base text-slate-800">हटाने की पुष्टि करें</h3>
+      <p id="deleteConfirmMessage" class="text-xs text-slate-600">क्या आप वाकई इस आइटम को हटाना चाहते हैं?</p>
+      <div class="grid grid-cols-2 gap-2 pt-2">
+        <button onclick="closeDeleteConfirmModal()" class="py-2 border rounded-lg text-xs font-bold text-slate-600">नहीं, रखें</button>
+        <button id="btnConfirmDeleteAction" class="py-2 bg-red-600 text-white rounded-lg text-xs font-bold shadow">हाँ, हटाएं</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- TOAST NOTIFICATION -->
+  <div id="toast" class="fixed bottom-20 left-1/2 -translate-x-1/2 bg-slate-900/95 text-white px-4 py-2 rounded-xl text-xs font-semibold shadow-2xl z-50 hidden transition-all">
+    सूचना
+  </div>
+
+  <!-- PRINTABLE RECEIPT TEMPLATE (FOR PRINT/PDF) -->
+  <div id="printableReceipt" class="hidden p-4 bg-white text-black text-xs font-mono">
+    <!-- Populated during print -->
+  </div>
+
+  <!-- APPLICATION LOGIC SCRIPT -->
+  <script>
+    // --- INITIAL DATA & STORAGE SETUP ---
+    const initialData = {
+      shopName: "सुमन डिस्पोजल & बॉक्सेस",
+      shopAddress: "मेन मार्केट, रेलवे स्टेशन रोड",
+      shopPhone: "9812345678",
+      categories: [
+        { id: "all", name: "सभी सामान" },
+        { id: "boxes", name: "मिठाई डिब्बा" },
+        { id: "disposable", name: "डिस्पोजेबल" }
+      ],
+      products: [
+        { id: "p1", name: "500g मिठाई डिब्बा (Standard)", category: "boxes", unit: "Pack of 15", price: 180, stock: 45 },
+        { id: "p2", name: "1kg मिठाई डिब्बा (Royal Gold)", category: "boxes", unit: "Pack of 10", price: 220, stock: 30 },
+        { id: "p3", name: "250g काजू कतली बॉक्स", category: "boxes", unit: "Pack of 20", price: 160, stock: 25 },
+        { id: "p4", name: "सिल्वर दोना 6 इंच", category: "disposable", unit: "Bundle 100", price: 65, stock: 120 },
+        { id: "p5", name: "प्लास्टिक प्लेट 7 इंच", category: "disposable", unit: "Pack 50", price: 85, stock: 80 },
+        { id: "p6", name: "एल्युमिनियम फॉयल 1kg", category: "disposable", unit: "नग (Piece)", price: 290, stock: 18 },
+        { id: "p7", name: "क्लिंग फिल्म 30 मीटर", category: "disposable", unit: "रोल (Roll)", price: 110, stock: 22 }
+      ],
+      rawMaterials: [
+        { id: "r1", name: "डुप्लेक्स पेपरबोर्ड 350 GSM", unit: "शीट (Sheets)", stock: 850, cost: 12 },
+        { id: "r2", name: "गोल्डन फॉयल लैमिनेशन फिल्म", unit: "मीटर (Meters)", stock: 300, cost: 6 },
+        { id: "r3", name: "क्राफ्ट पेपर शीट (Inners)", unit: "शीट (Sheets)", stock: 1200, cost: 4 }
+      ],
+      customers: [
+        { id: "c1", name: "काउंटर नकद ग्राहक (Retail)", phone: "", balance: 0, entries: [] },
+        { id: "c2", name: "बीकानेर स्वीट्स (थोक)", phone: "9876543210", balance: 4200, entries: [
+          { date: "2026-11-01", desc: "बिल #101 - 20 पैकेट 1kg डिब्बा", type: "DEBIT", amount: 4400 },
+          { date: "2026-11-01", desc: "नकद जमा", type: "CREDIT", amount: 200 }
+        ]},
+        { id: "c3", name: "जोधपुर मिष्ठान भंडार", phone: "9811122233", balance: 1850, entries: [
+          { date: "2026-10-28", desc: "बिल #98 - दोना व फॉयल", type: "DEBIT", amount: 1850 }
+        ]}
+      ],
+      sales: [
+        {
+          id: "INV-101",
+          date: "2026-11-02",
+          customerName: "बीकानेर स्वीट्स (थोक)",
+          customerPhone: "9876543210",
+          items: [{ name: "1kg मिठाई डिब्बा (Royal Gold)", qty: 20, rate: 220, total: 4400 }],
+          grandTotal: 4400,
+          paymentMode: "UDHAR"
+        }
+      ]
+    };
+
+    // Load or initialize state
+    let appState = JSON.parse(localStorage.getItem('suman_pos_state')) || initialData;
+
+    function saveState() {
+      localStorage.setItem('suman_pos_state', JSON.stringify(appState));
+    }
+
+    // Runtime state
+    let activeCategory = "all";
+    let activeCustomer = appState.customers[0];
+    let cart = [];
+    let selectedPaymentMode = "CASH";
+    let pendingModalItem = null;
+    let hisaabCurrentPeriod = "daily";
+
+    // --- NAVIGATION & TABS ---
+    function switchTab(tabId) {
+      document.querySelectorAll('.tab-content').forEach(el => el.classList.add('hidden'));
+      const activeEl = document.getElementById('tab-' + tabId);
+      if (activeEl) activeEl.classList.remove('hidden');
+
+      document.querySelectorAll('nav button').forEach(btn => {
+        btn.classList.remove('text-emerald-700');
+        btn.classList.add('text-slate-500');
+      });
+      const activeNav = document.getElementById('nav-' + tabId);
+      if (activeNav) {
+        activeNav.classList.remove('text-slate-500');
+        activeNav.classList.add('text-emerald-700');
+      }
+
+      if (tabId === 'pos') renderPosProducts();
+      if (tabId === 'stock') renderStockList();
+      if (tabId === 'raw') renderRawList();
+      if (tabId === 'khata') renderKhataList();
+      if (tabId === 'hisaab') updateHisaabView();
+    }
+
+    function showToast(msg) {
+      const toast = document.getElementById('toast');
+      toast.innerText = msg;
+      toast.classList.remove('hidden');
+      setTimeout(() => toast.classList.add('hidden'), 2200);
+    }
+
+    // --- POS BILLING COUNTER ---
+    function renderCategoryPills() {
+      const container = document.getElementById('categoryPills');
+      container.innerHTML = appState.categories.map(cat => `
+        <button onclick="setCategoryFilter('${cat.id}')" 
+          class="px-3 py-1.5 rounded-full font-bold whitespace-nowrap transition-all ${activeCategory === cat.id ? 'bg-emerald-700 text-white shadow-sm' : 'bg-white border border-slate-300 text-slate-700'}">
+          ${cat.name}
+        </button>
+      `).join('');
+    }
+
+    function setCategoryFilter(catId) {
+      activeCategory = catId;
+      renderCategoryPills();
+      renderPosProducts();
+    }
+
+    function clearPosSearch() {
+      document.getElementById('posSearch').value = '';
+      document.getElementById('clearSearchBtn').classList.add('hidden');
+      renderPosProducts();
+    }
+
+    function renderPosProducts() {
+      const query = (document.getElementById('posSearch').value || '').trim().toLowerCase();
+      document.getElementById('clearSearchBtn').classList.toggle('hidden', query === '');
+
+      const grid = document.getElementById('posProductGrid');
+      let filtered = appState.products;
+
+      if (activeCategory !== 'all') {
+        filtered = filtered.filter(p => p.category === activeCategory);
+      }
+
+      if (query) {
+        filtered = filtered.filter(p => p.name.toLowerCase().includes(query) || p.unit.toLowerCase().includes(query));
+      }
+
+      if (filtered.length === 0) {
+        grid.innerHTML = `<div class="col-span-2 py-8 text-center text-slate-400 text-xs">कोई सामान नहीं मिला</div>`;
+        return;
+      }
+
+      grid.innerHTML = filtered.map(p => `
+        <div onclick="openAddToCartModal('${p.id}')" class="bg-white p-3 rounded-xl border border-slate-200 shadow-sm flex flex-col justify-between active:scale-95 transition-transform cursor-pointer">
+          <div>
+            <div class="flex items-start justify-between">
+              <span class="text-[10px] font-bold px-1.5 py-0.5 rounded ${p.category === 'boxes' ? 'bg-amber-100 text-amber-800' : 'bg-blue-100 text-blue-800'}">
+                ${p.category === 'boxes' ? 'डिब्बा' : 'डिस्पोजेबल'}
+              </span>
+              <span class="text-[10px] text-slate-400 font-semibold">स्टॉक: ${p.stock}</span>
+            </div>
+            <h4 class="font-bold text-xs text-slate-800 mt-1.5 line-clamp-2 leading-snug">${p.name}</h4>
+            <p class="text-[11px] text-slate-500 mt-0.5">${p.unit}</p>
+          </div>
+          <div class="mt-2.5 flex items-center justify-between pt-1 border-t border-slate-100">
+            <span class="text-sm font-black text-emerald-700">₹${p.price}</span>
+            <span class="text-xs bg-emerald-50 text-emerald-700 font-bold px-2 py-0.5 rounded-md">+ जोड़ें</span>
+          </div>
+        </div>
+      `).join('');
+    }
+
+    function openAddToCartModal(prodId) {
+      const prod = appState.products.find(p => p.id === prodId);
+      if (!prod) return;
+      pendingModalItem = prod;
+      document.getElementById('modalItemTitle').innerText = prod.name + ` (${prod.unit})`;
+      document.getElementById('modalItemStock').innerText = `उपलब्ध स्टॉक: ${prod.stock}`;
+      document.getElementById('modalItemQty').value = 1;
+      document.getElementById('modalItemRate').value = prod.price;
+      document.getElementById('addToCartModal').classList.remove('hidden');
+      document.getElementById('addToCartModal').classList.add('flex');
+    }
+
+    function closeAddToCartModal() {
+      document.getElementById('addToCartModal').classList.add('hidden');
+      document.getElementById('addToCartModal').classList.remove('flex');
+    }
+
+    function confirmAddToCart() {
+      const qty = parseFloat(document.getElementById('modalItemQty').value) || 1;
+      const rate = parseFloat(document.getElementById('modalItemRate').value) || 0;
+
+      const existingIndex = cart.findIndex(item => item.id === pendingModalItem.id && item.rate === rate);
+      if (existingIndex > -1) {
+        cart[existingIndex].qty += qty;
+      } else {
+        cart.push({
+          id: pendingModalItem.id,
+          name: pendingModalItem.name,
+          unit: pendingModalItem.unit,
+          rate: rate,
+          qty: qty
+        });
+      }
+
+      closeAddToCartModal();
+      updateCartUI();
+      showToast(`${pendingModalItem.name} बिल में जुड़ा`);
+    }
+
+    function updateCartUI() {
+      const badge = document.getElementById('cartCountBadge');
+      const totalCount = cart.reduce((sum, item) => sum + item.qty, 0);
+      if (totalCount > 0) {
+        badge.innerText = totalCount;
+        badge.classList.remove('hidden');
+      } else {
+        badge.classList.add('hidden');
+      }
+
+      const list = document.getElementById('cartItemsList');
+      if (cart.length === 0) {
+        list.innerHTML = `<div class="py-12 text-center text-slate-400 text-xs">बिल में कोई सामान नहीं है</div>`;
+        document.getElementById('cartGrandTotal').innerText = '₹0';
+        return;
+      }
+
+      let grandTotal = 0;
+      list.innerHTML = cart.map((item, idx) => {
+        const itemTotal = item.qty * item.rate;
+        grandTotal += itemTotal;
+        return `
+          <div class="bg-slate-50 p-2.5 rounded-xl border border-slate-200 flex items-center justify-between text-xs">
+            <div class="flex-1 truncate pr-2">
+              <h5 class="font-bold text-slate-800 truncate">${item.name}</h5>
+              <p class="text-[11px] text-slate-500">${item.qty} ${item.unit} × ₹${item.rate}</p>
+            </div>
+            <div class="flex items-center space-x-2">
+              <span class="font-black text-slate-800">₹${itemTotal}</span>
+              <button onclick="removeCartItem(${idx})" class="text-red-500 font-bold px-1.5 py-0.5 rounded hover:bg-red-50">✕</button>
+            </div>
+          </div>
+        `;
+      }).join('');
+
+      document.getElementById('cartGrandTotal').innerText = `₹${grandTotal}`;
+      document.getElementById('cartCustomerSubhead').innerText = activeCustomer.name;
+    }
+
+    function removeCartItem(idx) {
+      cart.splice(idx, 1);
+      updateCartUI();
+    }
+
+    function clearCart() {
+      cart = [];
+      updateCartUI();
+      closeCartSheet();
+    }
+
+    function openCartSheet() {
+      updateCartUI();
+      document.getElementById('cartSheet').classList.remove('hidden');
+      document.getElementById('cartSheet').classList.add('flex');
+    }
+
+    function closeCartSheet() {
+      document.getElementById('cartSheet').classList.add('hidden');
+      document.getElementById('cartSheet').classList.remove('flex');
+    }
+
+    function selectPaymentMode(mode) {
+      selectedPaymentMode = mode;
+      ['CASH', 'UPI', 'UDHAR'].forEach(m => {
+        const btn = document.getElementById('pay-' + m);
+        if (m === mode) {
+          btn.className = "py-2 rounded-lg border-2 border-emerald-600 bg-emerald-50 font-bold text-emerald-800";
+        } else {
+          btn.className = "py-2 rounded-lg border border-slate-300 bg-white font-medium text-slate-700";
+        }
+      });
+    }
+
+    function finalizeSaleAndShareWhatsApp() {
+      if (cart.length === 0) {
+        showToast("बिल में कोई सामान नहीं है!");
+        return;
+      }
+
+      const grandTotal = cart.reduce((sum, item) => sum + (item.qty * item.rate), 0);
+      const invoiceNum = 'INV-' + Math.floor(1000 + Math.random() * 9000);
+      const todayStr = new Date().toISOString().split('T')[0];
+
+      // Deduct product stock
+      cart.forEach(cartItem => {
+        const p = appState.products.find(prod => prod.id === cartItem.id);
+        if (p) p.stock = Math.max(0, p.stock - cartItem.qty);
+      });
+
+      // Record invoice
+      const saleRecord = {
+        id: invoiceNum,
+        date: todayStr,
+        customerName: activeCustomer.name,
+        customerPhone: activeCustomer.phone,
+        items: [...cart],
+        grandTotal: grandTotal,
+        paymentMode: selectedPaymentMode
+      };
+      appState.sales.unshift(saleRecord);
+
+      // Udhar Handling
+      if (selectedPaymentMode === 'UDHAR' && activeCustomer.id !== 'c1') {
+        activeCustomer.balance += grandTotal;
+        activeCustomer.entries.unshift({
+          date: todayStr,
+          desc: `बिल #${invoiceNum} (उधार)`,
+          type: 'DEBIT',
+          amount: grandTotal
+        });
+      }
+
+      saveState();
+
+      // Format WhatsApp Message
+      let billMsg = `*${appState.shopName}*
+`;
+      billMsg += `${appState.shopAddress}
+`;
+      billMsg += `मो.: ${appState.shopPhone}
+`;
+      billMsg += `--------------------------
+`;
+      billMsg += `*अनुमानित बिल (Estimate Bill)*: #${invoiceNum}
+`;
+      billMsg += `दिनांक: ${todayStr}
+`;
+      billMsg += `ग्राहक: *${activeCustomer.name}*
+`;
+      billMsg += `--------------------------
+`;
+      cart.forEach((item, i) => {
+        billMsg += `${i+1}. ${item.name} (${item.unit})
+   ${item.qty} × ₹${item.rate} = *₹${item.qty * item.rate}*
+`;
+      });
+      billMsg += `--------------------------
+`;
+      billMsg += `*कुल योग (Total): ₹${grandTotal}*
+`;
+      billMsg += `भुगतान: *${selectedPaymentMode === 'CASH' ? 'नकद (Cash)' : selectedPaymentMode === 'UPI' ? 'ऑनलाइन UPI' : 'उधार (Credit)'}*
+`;
+      if (selectedPaymentMode === 'UDHAR') {
+        billMsg += `*कुल बकाया खाता बैलेंस: ₹${activeCustomer.balance}*
+`;
+      }
+      billMsg += `
+_धन्यवाद! फिर सेवा का अवसर दें।_`;
+
+      const encodedMsg = encodeURIComponent(billMsg);
+      const waUrl = activeCustomer.phone 
+        ? `https://api.whatsapp.com/send?phone=91${activeCustomer.phone}&text=${encodedMsg}`
+        : `https://api.whatsapp.com/send?text=${encodedMsg}`;
+
+      window.open(waUrl, '_blank');
+
+      cart = [];
+      updateCartUI();
+      closeCartSheet();
+      showToast("बिल सफलतापूर्वक कट गया!");
+    }
+
+    // --- STOCK & FINISHED CATALOG VIEW ---
+    function renderStockList() {
+      const container = document.getElementById('stockListContainer');
+      container.innerHTML = appState.products.map(p => `
+        <div class="bg-white p-3 rounded-xl border border-slate-200 shadow-sm flex flex-col space-y-2">
+          <div class="flex items-start justify-between">
+            <div>
+              <span class="text-[10px] font-bold px-1.5 py-0.5 rounded ${p.category === 'boxes' ? 'bg-amber-100 text-amber-800' : 'bg-blue-100 text-blue-800'}">
+                ${p.category === 'boxes' ? 'मिठाई डिब्बा' : 'डिस्पोजेबल'}
+              </span>
+              <h4 class="font-bold text-xs text-slate-800 mt-1">${p.name}</h4>
+              <p class="text-[11px] text-slate-500">इकाई: ${p.unit} | डिफ़ॉल्ट रेट: ₹${p.price}</p>
+            </div>
+            <div class="text-right">
+              <span class="text-xs font-black text-slate-800">${p.stock}</span>
+              <p class="text-[10px] text-slate-400">उपलब्ध स्टॉक</p>
+            </div>
+          </div>
+          <div class="flex items-center space-x-2 pt-1 border-t border-slate-100 text-xs">
+            <button onclick="openEditProductModal('${p.id}')" class="flex-1 py-1.5 bg-blue-50 text-blue-700 font-bold rounded-lg border border-blue-200 flex items-center justify-center space-x-1">
+              <span>✏️ बदलें (Edit)</span>
+            </button>
+            <button onclick="confirmDeleteItem('product', '${p.id}', '${p.name}')" class="flex-1 py-1.5 bg-red-50 text-red-700 font-bold rounded-lg border border-red-200 flex items-center justify-center space-x-1">
+              <span>🗑️ हटाएं (Delete)</span>
+            </button>
+          </div>
+        </div>
+      `).join('');
+    }
+
+    function openAddProductModal() {
+      document.getElementById('addProductModal').classList.remove('hidden');
+      document.getElementById('addProductModal').classList.add('flex');
+    }
+    function closeAddProductModal() {
+      document.getElementById('addProductModal').classList.add('hidden');
+      document.getElementById('addProductModal').classList.remove('flex');
+    }
+    function saveNewProduct() {
+      const name = document.getElementById('newProdName').value.trim();
+      const cat = document.getElementById('newProdCat').value;
+      const unit = document.getElementById('newProdUnit').value.trim() || 'नग';
+      const price = parseFloat(document.getElementById('newProdPrice').value) || 0;
+      const stock = parseFloat(document.getElementById('newProdStock').value) || 0;
+
+      if (!name) { showToast("कृपया सामान का नाम भरें"); return; }
+
+      appState.products.push({
+        id: 'p-' + Date.now(),
+        name, category: cat, unit, price, stock
+      });
+      saveState();
+      closeAddProductModal();
+      renderStockList();
+      showToast("नया आइटम जुड़ गया");
+    }
+
+    function openEditProductModal(id) {
+      const p = appState.products.find(item => item.id === id);
+      if (!p) return;
+      document.getElementById('editProdId').value = p.id;
+      document.getElementById('editProdName').value = p.name;
+      document.getElementById('editProdCat').value = p.category;
+      document.getElementById('editProdUnit').value = p.unit;
+      document.getElementById('editProdPrice').value = p.price;
+      document.getElementById('editProdStock').value = p.stock;
+
+      document.getElementById('editProductModal').classList.remove('hidden');
+      document.getElementById('editProductModal').classList.add('flex');
+    }
+    function closeEditProductModal() {
+      document.getElementById('editProductModal').classList.add('hidden');
+      document.getElementById('editProductModal').classList.remove('flex');
+    }
+    function saveProductEdit() {
+      const id = document.getElementById('editProdId').value;
+      const p = appState.products.find(item => item.id === id);
+      if (!p) return;
+
+      p.name = document.getElementById('editProdName').value.trim() || p.name;
+      p.category = document.getElementById('editProdCat').value;
+      p.unit = document.getElementById('editProdUnit').value.trim() || p.unit;
+      p.price = parseFloat(document.getElementById('editProdPrice').value) || 0;
+      p.stock = parseFloat(document.getElementById('editProdStock').value) || 0;
+
+      saveState();
+      closeEditProductModal();
+      renderStockList();
+      showToast("सामान अपडेट हो गया");
+    }
+
+    // --- RAW MATERIALS & PRODUCTION ---
+    function renderRawList() {
+      const container = document.getElementById('rawListContainer');
+      container.innerHTML = appState.rawMaterials.map(r => `
+        <div class="bg-white p-3 rounded-xl border border-slate-200 shadow-sm flex flex-col space-y-2">
+          <div class="flex items-start justify-between">
+            <div>
+              <h4 class="font-bold text-xs text-slate-800">${r.name}</h4>
+              <p class="text-[11px] text-slate-500">लागत: ₹${r.cost} प्रति ${r.unit}</p>
+            </div>
+            <div class="text-right">
+              <span class="text-sm font-black text-amber-700">${r.stock}</span>
+              <p class="text-[10px] text-slate-400">${r.unit}</p>
+            </div>
+          </div>
+          <div class="flex items-center space-x-2 pt-1 border-t border-slate-100 text-xs">
+            <button onclick="openEditRawModal('${r.id}')" class="flex-1 py-1.5 bg-blue-50 text-blue-700 font-bold rounded-lg border border-blue-200 flex items-center justify-center space-x-1">
+              <span>✏️ बदलें</span>
+            </button>
+            <button onclick="confirmDeleteItem('raw', '${r.id}', '${r.name}')" class="flex-1 py-1.5 bg-red-50 text-red-700 font-bold rounded-lg border border-red-200 flex items-center justify-center space-x-1">
+              <span>🗑️ हटाएं</span>
+            </button>
+          </div>
+        </div>
+      `).join('');
+    }
+
+    function openAddRawModal() {
+      document.getElementById('addRawModal').classList.remove('hidden');
+      document.getElementById('addRawModal').classList.add('flex');
+    }
+    function closeAddRawModal() {
+      document.getElementById('addRawModal').classList.add('hidden');
+      document.getElementById('addRawModal').classList.remove('flex');
+    }
+    function saveNewRaw() {
+      const name = document.getElementById('newRawName').value.trim();
+      const stock = parseFloat(document.getElementById('newRawQty').value) || 0;
+      const unit = document.getElementById('newRawUnit').value.trim() || 'शीट';
+      const cost = parseFloat(document.getElementById('newRawCost').value) || 0;
+
+      if (!name) { showToast("कच्चे माल का नाम भरें"); return; }
+
+      appState.rawMaterials.push({ id: 'r-' + Date.now(), name, stock, unit, cost });
+      saveState();
+      closeAddRawModal();
+      renderRawList();
+      showToast("कच्चा माल जुड़ गया");
+    }
+
+    function openEditRawModal(id) {
+      const r = appState.rawMaterials.find(item => item.id === id);
+      if (!r) return;
+      document.getElementById('editRawId').value = r.id;
+      document.getElementById('editRawName').value = r.name;
+      document.getElementById('editRawStock').value = r.stock;
+      document.getElementById('editRawUnit').value = r.unit;
+      document.getElementById('editRawCost').value = r.cost;
+
+      document.getElementById('editRawModal').classList.remove('hidden');
+      document.getElementById('editRawModal').classList.add('flex');
+    }
+    function closeEditRawModal() {
+      document.getElementById('editRawModal').classList.add('hidden');
+      document.getElementById('editRawModal').classList.remove('flex');
+    }
+    function saveRawEdit() {
+      const id = document.getElementById('editRawId').value;
+      const r = appState.rawMaterials.find(item => item.id === id);
+      if (!r) return;
+
+      r.name = document.getElementById('editRawName').value.trim() || r.name;
+      r.stock = parseFloat(document.getElementById('editRawStock').value) || 0;
+      r.unit = document.getElementById('editRawUnit').value.trim() || r.unit;
+      r.cost = parseFloat(document.getElementById('editRawCost').value) || 0;
+
+      saveState();
+      closeEditRawModal();
+      renderRawList();
+      showToast("कच्चा माल अपडेट हो गया");
+    }
+
+    function openProductionModal() {
+      const boxSelect = document.getElementById('prodBoxSelect');
+      const boxProducts = appState.products.filter(p => p.category === 'boxes');
+      boxSelect.innerHTML = boxProducts.map(p => `<option value="${p.id}">${p.name} (${p.unit})</option>`).join('');
+
+      const rawSelect = document.getElementById('prodRawSelect');
+      rawSelect.innerHTML = appState.rawMaterials.map(r => `<option value="${r.id}">${r.name} (उपलब्ध: ${r.stock})</option>`).join('');
+
+      document.getElementById('productionModal').classList.remove('hidden');
+      document.getElementById('productionModal').classList.add('flex');
+    }
+    function closeProductionModal() {
+      document.getElementById('productionModal').classList.add('hidden');
+      document.getElementById('productionModal').classList.remove('flex');
+    }
+    function executeProduction() {
+      const boxId = document.getElementById('prodBoxSelect').value;
+      const boxQty = parseFloat(document.getElementById('prodBoxQty').value) || 0;
+      const rawId = document.getElementById('prodRawSelect').value;
+      const rawUsed = parseFloat(document.getElementById('prodRawUsed').value) || 0;
+
+      if (boxQty <= 0 || rawUsed <= 0) {
+        showToast("कृपया डिब्बा मात्रा व खर्च शीट भरें");
+        return;
+      }
+
+      const raw = appState.rawMaterials.find(r => r.id === rawId);
+      const box = appState.products.find(p => p.id === boxId);
+
+      if (!raw || !box) return;
+      if (raw.stock < rawUsed) {
+        showToast("कच्चा माल पर्याप्त नहीं है!");
+        return;
+      }
+
+      raw.stock -= rawUsed;
+      box.stock += boxQty;
+
+      saveState();
+      closeProductionModal();
+      renderRawList();
+      showToast(`सफल: ${boxQty} डिब्बे तैयार, ${rawUsed} शीट घटाई गईं`);
+    }
+
+    // --- DELETE CONFIRMATION ---
+    let pendingDeleteTarget = null;
+    function confirmDeleteItem(type, id, name) {
+      pendingDeleteTarget = { type, id };
+      document.getElementById('deleteConfirmMessage').innerText = `क्या आप वाकई "${name}" को हटाना चाहते हैं?`;
+      document.getElementById('deleteConfirmModal').classList.remove('hidden');
+      document.getElementById('deleteConfirmModal').classList.add('flex');
+
+      document.getElementById('btnConfirmDeleteAction').onclick = () => {
+        if (pendingDeleteTarget.type === 'product') {
+          appState.products = appState.products.filter(p => p.id !== pendingDeleteTarget.id);
+          renderStockList();
+        } else if (pendingDeleteTarget.type === 'raw') {
+          appState.rawMaterials = appState.rawMaterials.filter(r => r.id !== pendingDeleteTarget.id);
+          renderRawList();
+        }
+        saveState();
+        closeDeleteConfirmModal();
+        showToast("आइटम हटा दिया गया");
+      };
+    }
+    function closeDeleteConfirmModal() {
+      document.getElementById('deleteConfirmModal').classList.add('hidden');
+      document.getElementById('deleteConfirmModal').classList.remove('flex');
+    }
+
+    // --- CUSTOMER KHATA (LEDGER) ---
+    function renderKhataList() {
+      const container = document.getElementById('customerListContainer');
+      const activeCustomers = appState.customers.filter(c => c.id !== 'c1');
+      const totalUdhar = activeCustomers.reduce((sum, c) => sum + (c.balance || 0), 0);
+
+      document.getElementById('totalMarketUdhar').innerText = `₹${totalUdhar}`;
+      document.getElementById('totalCustomersCount').innerText = activeCustomers.length;
+
+      container.innerHTML = activeCustomers.map(c => `
+        <div onclick="openCustomerLedgerModal('${c.id}')" class="bg-white p-3 rounded-xl border border-slate-200 shadow-sm flex items-center justify-between cursor-pointer active:scale-95">
+          <div>
+            <h4 class="font-bold text-xs text-slate-800">${c.name}</h4>
+            <p class="text-[11px] text-slate-500">मो.: ${c.phone || 'उपलब्ध नहीं'}</p>
+          </div>
+          <div class="text-right">
+            <span class="text-sm font-black ${c.balance > 0 ? 'text-red-600' : 'text-emerald-700'}">₹${c.balance}</span>
+            <p class="text-[10px] text-slate-400 font-semibold">${c.balance > 0 ? 'बाकी बकाया' : 'साफ खाता'}</p>
+          </div>
+        </div>
+      `).join('');
+    }
+
+    let activeLedgerCustomer = null;
+    function openCustomerLedgerModal(custId) {
+      activeLedgerCustomer = appState.customers.find(c => c.id === custId);
+      if (!activeLedgerCustomer) return;
+
+      document.getElementById('ledgerCustName').innerText = activeLedgerCustomer.name;
+      document.getElementById('ledgerCustPhone').innerText = `फोन: ${activeLedgerCustomer.phone || '-'}`;
+      document.getElementById('ledgerBalanceAmount').innerText = `₹${activeLedgerCustomer.balance}`;
+
+      const list = document.getElementById('ledgerEntriesList');
+      if (!activeLedgerCustomer.entries || activeLedgerCustomer.entries.length === 0) {
+        list.innerHTML = `<div class="py-6 text-center text-slate-400">कोई लेन-देन दर्ज नहीं है</div>`;
+      } else {
+        list.innerHTML = activeLedgerCustomer.entries.map(e => `
+          <div class="p-2 rounded-lg border ${e.type === 'DEBIT' ? 'bg-red-50 border-red-200' : 'bg-emerald-50 border-emerald-200'} flex items-center justify-between">
+            <div>
+              <p class="font-bold text-slate-800">${e.desc}</p>
+              <p class="text-[10px] text-slate-400">${e.date}</p>
+            </div>
+            <span class="font-black ${e.type === 'DEBIT' ? 'text-red-700' : 'text-emerald-700'}">
+              ${e.type === 'DEBIT' ? '+ ₹' : '- ₹'}${e.amount}
+            </span>
+          </div>
+        `).join('');
+      }
+
+      document.getElementById('customerLedgerModal').classList.remove('hidden');
+      document.getElementById('customerLedgerModal').classList.add('flex');
+    }
+    function closeCustomerLedgerModal() {
+      document.getElementById('customerLedgerModal').classList.add('hidden');
+      document.getElementById('customerLedgerModal').classList.remove('flex');
+    }
+
+    function openReceivePaymentModal() {
+      if (!activeLedgerCustomer) return;
+      const amountStr = prompt(`जमा रकम भरें (${activeLedgerCustomer.name}):`);
+      const amount = parseFloat(amountStr);
+      if (!amount || amount <= 0) return;
+
+      activeLedgerCustomer.balance = Math.max(0, activeLedgerCustomer.balance - amount);
+      activeLedgerCustomer.entries.unshift({
+        date: new Date().toISOString().split('T')[0],
+        desc: "नकद / UPI भुगतान प्राप्ति",
+        type: "CREDIT",
+        amount: amount
+      });
+      saveState();
+      openCustomerLedgerModal(activeLedgerCustomer.id);
+      renderKhataList();
+      showToast("भुगतान जमा हो गया");
+    }
+
+    function sendKhataWhatsAppReminder() {
+      if (!activeLedgerCustomer) return;
+      if (!activeLedgerCustomer.phone) {
+        showToast("ग्राहक का फोन नंबर दर्ज नहीं है");
+        return;
+      }
+      let msg = `नमस्ते *${activeLedgerCustomer.name}* जी,
+`;
+      msg += `आपके *${appState.shopName}* पर कुल *₹${activeLedgerCustomer.balance}* बाकी बकाया हैं।
+`;
+      msg += `कृपया जल्द से जल्द भुगतान कराने की कृपा करें।
+
+`;
+      msg += `दुकान: ${appState.shopAddress}
+फोन: ${appState.shopPhone}`;
+
+      window.open(`https://api.whatsapp.com/send?phone=91${activeLedgerCustomer.phone}&text=${encodeURIComponent(msg)}`, '_blank');
+    }
+
+    function openSelectCustomerModal() {
+      const container = document.getElementById('customerSelectList');
+      container.innerHTML = appState.customers.map(c => `
+        <div onclick="selectCustomerForBill('${c.id}')" class="p-2.5 rounded-xl border border-slate-200 bg-slate-50 flex items-center justify-between cursor-pointer active:scale-95">
+          <div>
+            <h4 class="font-bold text-xs text-slate-800">${c.name}</h4>
+            <p class="text-[10px] text-slate-500">${c.phone ? 'मो: ' + c.phone : 'नकद काउंटर'}</p>
+          </div>
+          <span class="text-xs font-bold text-slate-700">${c.balance > 0 ? 'बकाया ₹' + c.balance : 'OK'}</span>
+        </div>
+      `).join('');
+
+      document.getElementById('selectCustomerModal').classList.remove('hidden');
+      document.getElementById('selectCustomerModal').classList.add('flex');
+    }
+    function closeSelectCustomerModal() {
+      document.getElementById('selectCustomerModal').classList.add('hidden');
+      document.getElementById('selectCustomerModal').classList.remove('flex');
+    }
+    function selectCustomerForBill(id) {
+      activeCustomer = appState.customers.find(c => c.id === id) || appState.customers[0];
+      document.getElementById('currentCustomerName').innerText = activeCustomer.name;
+      closeSelectCustomerModal();
+      showToast(`ग्राहक चुना गया: ${activeCustomer.name}`);
+    }
+
+    // --- HISAAB TAB & PERIOD FILTERS (DAILY, MONTHLY, YEARLY, FINANCIAL YEAR) ---
+    function setHisaabPeriod(period) {
+      hisaabCurrentPeriod = period;
+      ['daily', 'monthly', 'yearly', 'fy'].forEach(p => {
+        const btn = document.getElementById('period-' + p);
+        if (p === period) {
+          btn.className = "flex-1 py-1.5 rounded-lg font-bold text-center bg-emerald-600 text-white shadow-sm";
+        } else {
+          btn.className = "flex-1 py-1.5 rounded-lg font-medium text-slate-600 text-center";
+        }
+      });
+      updateHisaabDropdownOptions();
+      updateHisaabView();
+    }
+
+    function updateHisaabDropdownOptions() {
+      const dropdown = document.getElementById('hisaabDropdown');
+      const label = document.getElementById('hisaabRangeLabel');
+
+      if (hisaabCurrentPeriod === 'daily') {
+        dropdown.classList.add('hidden');
+        label.innerText = `आज: ${new Date().toLocaleDateString('hi-IN', { day: '2-digit', month: 'short', year: 'numeric' })}`;
+      } else if (hisaabCurrentPeriod === 'monthly') {
+        dropdown.classList.remove('hidden');
+        label.innerText = `महीना चुनें:`;
+        dropdown.innerHTML = `
+          <option value="2026-11">नवंबर 2026</option>
+          <option value="2026-10">अक्टूबर 2026</option>
+          <option value="2026-09">सितंबर 2026</option>
+        `;
+      } else if (hisaabCurrentPeriod === 'yearly') {
+        dropdown.classList.remove('hidden');
+        label.innerText = `कैलेंडर वर्ष:`;
+        dropdown.innerHTML = `
+          <option value="2026">वर्ष 2026 (Jan - Dec)</option>
+          <option value="2025">वर्ष 2025 (Jan - Dec)</option>
+        `;
+      } else if (hisaabCurrentPeriod === 'fy') {
+        dropdown.classList.remove('hidden');
+        label.innerText = `वित्तीय वर्ष:`;
+        dropdown.innerHTML = `
+          <option value="FY2026-27">FY 2026-27 (1 Apr 26 - 31 Mar 27)</option>
+          <option value="FY2025-26">FY 2025-26 (1 Apr 25 - 31 Mar 26)</option>
+        `;
+      }
+    }
+
+    function onHisaabDropdownChange() {
+      updateHisaabView();
+    }
+
+    function updateHisaabView() {
+      const todayStr = new Date().toISOString().split('T')[0];
+      const dropdownVal = document.getElementById('hisaabDropdown').value;
+
+      let filteredSales = appState.sales;
+
+      if (hisaabCurrentPeriod === 'daily') {
+        filteredSales = appState.sales.filter(s => s.date === todayStr);
+      } else if (hisaabCurrentPeriod === 'monthly') {
+        filteredSales = appState.sales.filter(s => s.date.startsWith(dropdownVal || '2026-11'));
+      } else if (hisaabCurrentPeriod === 'yearly') {
+        filteredSales = appState.sales.filter(s => s.date.startsWith(dropdownVal || '2026'));
+      } else if (hisaabCurrentPeriod === 'fy') {
+        const fy = dropdownVal || 'FY2026-27';
+        if (fy === 'FY2026-27') {
+          filteredSales = appState.sales.filter(s => s.date >= '2026-04-01' && s.date <= '2027-03-31');
+        } else if (fy === 'FY2025-26') {
+          filteredSales = appState.sales.filter(s => s.date >= '2025-04-01' && s.date <= '2026-03-31');
+        }
+      }
+
+      const gross = filteredSales.reduce((sum, s) => sum + s.grandTotal, 0);
+      const cash = filteredSales.filter(s => s.paymentMode === 'CASH').reduce((sum, s) => sum + s.grandTotal, 0);
+      const upi = filteredSales.filter(s => s.paymentMode === 'UPI').reduce((sum, s) => sum + s.grandTotal, 0);
+      const udhar = filteredSales.filter(s => s.paymentMode === 'UDHAR').reduce((sum, s) => sum + s.grandTotal, 0);
+
+      document.getElementById('kpiGrossSales').innerText = `₹${gross}`;
+      document.getElementById('kpiBillCount').innerText = `${filteredSales.length} बिल काटे गए`;
+      document.getElementById('kpiCashSales').innerText = `₹${cash}`;
+      document.getElementById('kpiUpiSales').innerText = `₹${upi}`;
+      document.getElementById('kpiCreditSales').innerText = `₹${udhar}`;
+
+      const invoicesContainer = document.getElementById('hisaabInvoicesList');
+      if (filteredSales.length === 0) {
+        invoicesContainer.innerHTML = `<div class="py-8 text-center text-slate-400 text-xs">इस अवधि में कोई बिल नहीं है</div>`;
+        return;
+      }
+
+      invoicesContainer.innerHTML = filteredSales.map(inv => `
+        <div class="bg-white p-3 rounded-xl border border-slate-200 shadow-sm flex items-center justify-between text-xs">
+          <div>
+            <div class="flex items-center space-x-2">
+              <span class="font-bold text-slate-800">#${inv.id}</span>
+              <span class="text-[10px] px-1.5 py-0.5 rounded font-bold ${inv.paymentMode === 'CASH' ? 'bg-emerald-100 text-emerald-800' : inv.paymentMode === 'UPI' ? 'bg-blue-100 text-blue-800' : 'bg-amber-100 text-amber-900'}">
+                ${inv.paymentMode}
+              </span>
+            </div>
+            <p class="text-[11px] text-slate-600 mt-0.5">${inv.customerName}</p>
+            <p class="text-[10px] text-slate-400">${inv.date}</p>
+          </div>
+          <div class="text-right">
+            <span class="text-sm font-black text-slate-800">₹${inv.grandTotal}</span>
+            <button onclick="reprintInvoice('${inv.id}')" class="block text-[11px] text-emerald-700 font-bold underline mt-1">प्रिंट / शेयर</button>
+          </div>
+        </div>
+      `).join('');
+    }
+
+    function reprintInvoice(invId) {
+      const inv = appState.sales.find(s => s.id === invId);
+      if (!inv) return;
+
+      let msg = `*${appState.shopName}*
+`;
+      msg += `बिल: #${inv.id} | तारीख: ${inv.date}
+`;
+      msg += `ग्राहक: ${inv.customerName}
+`;
+      msg += `--------------------------
+`;
+      inv.items.forEach(it => {
+        msg += `${it.name} - ${it.qty} × ₹${it.rate} = ₹${it.qty * it.rate}
+`;
+      });
+      msg += `--------------------------
+`;
+      msg += `*कुल योग: ₹${inv.grandTotal} (${inv.paymentMode})*
+`;
+
+      window.open(`https://api.whatsapp.com/send?text=${encodeURIComponent(msg)}`, '_blank');
+    }
+
+    // --- SHOP PROFILE SETTINGS ---
+    function openShopSettings() {
+      document.getElementById('settingsShopName').value = appState.shopName;
+      document.getElementById('settingsShopAddress').value = appState.shopAddress;
+      document.getElementById('settingsShopPhone').value = appState.shopPhone;
+
+      document.getElementById('shopSettingsModal').classList.remove('hidden');
+      document.getElementById('shopSettingsModal').classList.add('flex');
+    }
+    function closeShopSettings() {
+      document.getElementById('shopSettingsModal').classList.add('hidden');
+      document.getElementById('shopSettingsModal').classList.remove('flex');
+    }
+    function saveShopSettings() {
+      appState.shopName = document.getElementById('settingsShopName').value.trim() || appState.shopName;
+      appState.shopAddress = document.getElementById('settingsShopAddress').value.trim() || appState.shopAddress;
+      appState.shopPhone = document.getElementById('settingsShopPhone').value.trim() || appState.shopPhone;
+
+      document.getElementById('shopTitle').innerText = appState.shopName;
+      saveState();
+      closeShopSettings();
+      showToast("दुकान की जानकारी अपडेट हो गई");
+    }
+
+    // --- GOOGLE DRIVE & LOCAL BACKUP ---
+    let driveAccessToken = null;
+
+    function openCloudModal() {
+      document.getElementById('cloudModal').classList.remove('hidden');
+      document.getElementById('cloudModal').classList.add('flex');
+    }
+    function closeCloudModal() {
+      document.getElementById('cloudModal').classList.add('hidden');
+      document.getElementById('cloudModal').classList.remove('flex');
+    }
+
+    function handleGoogleDriveAuth() {
+      if (typeof google === 'undefined') {
+        showToast("गूगल सर्विस लोड हो रही है, 5 सेकंड बाद पुनः प्रयास करें");
+        return;
+      }
+      const tokenClient = google.accounts.oauth2.initTokenClient({
+        client_id: '108154189283-example.apps.googleusercontent.com', // Replace with real GCP Client ID when deployed
+        scope: 'https://www.googleapis.com/auth/drive.file',
+        callback: (resp) => {
+          if (resp.error) {
+            showToast("गूगल साइन-इन रद्द या विफल हुआ");
+            return;
+          }
+          driveAccessToken = resp.access_token;
+          document.getElementById('driveAuthStatus').innerHTML = 'स्थिति: <span class="text-emerald-700 font-bold">जुड़ा हुआ (Connected to Drive)</span>';
+          document.getElementById('btnDriveUpload').removeAttribute('disabled');
+          document.getElementById('btnDriveUpload').classList.remove('opacity-50', 'cursor-not-allowed');
+          document.getElementById('gdriveIcon').innerText = '✅';
+          showToast("Google Drive सफलतापूर्वक जुड़ गया!");
+        }
+      });
+      tokenClient.requestAccessToken({ prompt: 'consent' });
+    }
+
+    async function uploadBackupToDrive() {
+      if (!driveAccessToken) {
+        showToast("पहले Google Drive से लॉगिन करें");
+        return;
+      }
+      try {
+        const fileContent = JSON.stringify(appState, null, 2);
+        const fileName = `Suman_POS_Backup_${new Date().toISOString().split('T')[0]}.json`;
+
+        const metadata = {
+          name: fileName,
+          mimeType: 'application/json'
+        };
+
+        const form = new FormData();
+        form.append('metadata', new Blob([JSON.stringify(metadata)], { type: 'application/json' }));
+        form.append('file', new Blob([fileContent], { type: 'application/json' }));
+
+        const res = await fetch('https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart', {
+          method: 'POST',
+          headers: new Headers({ 'Authorization': 'Bearer ' + driveAccessToken }),
+          body: form
+        });
+
+        if (res.ok) {
+          showToast("5 TB Google Drive पर बैकअप सुरक्षित हो गया!");
+          closeCloudModal();
+        } else {
+          showToast("अपलोड विफल, कृपया पुनः प्रयास करें");
+        }
+      } catch (err) {
+        showToast("ड्राइव बैकअप त्रुटि: " + err.message);
+      }
+    }
+
+    function downloadLocalBackup() {
+      const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(appState, null, 2));
+      const downloadAnchor = document.createElement('a');
+      downloadAnchor.setAttribute("href", dataStr);
+      downloadAnchor.setAttribute("download", `Suman_Disposal_Backup_${new Date().toISOString().split('T')[0]}.json`);
+      document.body.appendChild(downloadAnchor);
+      downloadAnchor.click();
+      downloadAnchor.remove();
+      showToast("बैकअप फाइल डाउनलोड हो गई");
+    }
+
+    function restoreLocalBackup(event) {
+      const file = event.target.files[0];
+      if (!file) return;
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        try {
+          const loaded = JSON.parse(e.target.result);
+          if (loaded.products && loaded.customers) {
+            appState = loaded;
+            saveState();
+            location.reload();
+          } else {
+            showToast("अमान्य बैकअप फाइल!");
+          }
+        } catch (err) {
+          showToast("फाइल पढ़ने में त्रुटि!");
+        }
+      };
+      reader.readAsText(file);
+    }
+
+    // --- INITIAL BOOTSTRAP ---
+    window.addEventListener('DOMContentLoaded', () => {
+      document.getElementById('shopTitle').innerText = appState.shopName || "सुमन डिस्पोजल & बॉक्सेस";
+      renderCategoryPills();
+      renderPosProducts();
+    });
+  </script>
+</body>
+</html>
