@@ -53,8 +53,8 @@ jobs:
 
       - name: Initialize Capacitor Android Project
         run: |
-          npm install -g @capacitor/cli @capacitor/core @capacitor/android
           npm init -y
+          npm install @capacitor/core@latest @capacitor/cli@latest @capacitor/android@latest
           npx cap init "Suman Disposal" "com.sumandisposal.app" --web-dir web-app
           npx cap add android
 
