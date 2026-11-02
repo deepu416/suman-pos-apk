@@ -1,4 +1,4 @@
-name: Generate Suman Disposal APK
+name: Generate Standalone Suman Disposal APK
 
 on:
   workflow_dispatch:
@@ -26,30 +26,10 @@ jobs:
         run: |
           yes | $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager --licenses || true
 
-      - name: Create Web App Wrapper
+      - name: Package Offline HTML into App
         run: |
-          mkdir web-app
-          cat << 'EOF' > web-app/index.html
-          <!DOCTYPE html>
-          <html>
-            <head>
-              <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-              <style>
-                body, html, iframe {
-                  margin: 0;
-                  padding: 0;
-                  height: 100%;
-                  width: 100%;
-                  overflow: hidden;
-                  border: none;
-                }
-              </style>
-            </head>
-            <body>
-              <iframe src="https://suman-disposal.netlify.app/"></iframe>
-            </body>
-          </html>
-          EOF
+          mkdir -p web-app
+          cp index.html web-app/
 
       - name: Initialize Capacitor Android Project
         run: |
